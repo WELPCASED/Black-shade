@@ -1,0 +1,16 @@
+name: App
+targets:
+  App:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources: [App]
+    info:
+      path: App/Info.plist
+      properties:
+        NSCameraUsageDescription: "Camera view"
+        UILaunchScreen: {}
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.test.BlackCam
+      SWIFT_VERSION: "5.0"
+      CODE_SIGNING_ALLOWED: "NO"
