@@ -1,0 +1,28 @@
+name: Build IPA
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          brew install xcodegen
+          mkdir -p App/App
+          cp sources/Main.swift App/App/Main.swift
+          cp sources/ContentView.swift App/App/ContentView.swift
+          cp sources/project.yml App/project.yml
+          cd App && xcodegen generate
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos -derivedDataPath ../build CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+      - name: Package IPA
+        run: |
+          mkdir -p output/Payload
+          cp -r build/Build/Products/Release-iphoneos/App.app output/Payload/
+          cd output && zip -r BlackCam.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BlackCam.ipa
+          path: output/BlackCam.ipa
