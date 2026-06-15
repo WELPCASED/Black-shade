@@ -1,0 +1,105 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create and build project
+        run: |
+          brew install xcodegen
+          
+          mkdir -p App/App
+          
+          cat > App/App/AppMain.swift << 'EOF'
+import SwiftUI
+@main
+struct BlackApp: App {
+  var body: some Scene {
+    WindowGroup { ContentView() }
+  }
+}
+EOF
+
+          cat > App/App/ContentView.swift << 'EOF'
+import SwiftUI
+struct ContentView: View {
+  @State private var locked = false
+  @State private var input = ""
+  let code = "1379"
+  var body: some View {
+    ZStack {
+      Color.black.ignoresSafeArea()
+      if locked {
+        VStack(spacing: 20) {
+          Text(input.isEmpty ? "Enter code" : String(repeating: "●", count: input.count))
+            .foregroundColor(.white).font(.title)
+          LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 3), spacing: 15) {
+            ForEach(["1","2","3","4","5","6","7","8","9","⌫","0","✓"], id: \.self) { k in
+              Button(k) {
+                if k == "⌫" { if !input.isEmpty { input.removeLast() } }
+                else if k == "✓" { if input == code { locked = false; input = "" } else { input = "" } }
+                else if input.count < 6 { input += k }
+              }
+              .frame(width: 70, height: 70)
+              .background(Color.gray.opacity(0.3))
+              .foregroundColor(.white)
+              .font(.title2)
+              .cornerRadius(35)
+            }
+          }.padding()
+        }
+      } else {
+        Button("Lock Screen") { locked = true }
+          .foregroundColor(.white).font(.title)
+      }
+    }
+  }
+}
+EOF
+
+          cat > App/project.yml << 'EOF'
+name: App
+targets:
+  App:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources: [App]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.test.BlackOverlay
+      SWIFT_VERSION: "5.0"
+      CODE_SIGNING_ALLOWED: "NO"
+EOF
+
+          cd App && xcodegen generate
+          
+          xcodebuild \
+            -project App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath ../build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package IPA
+        run: |
+          mkdir -p output/Payload
+          cp -r build/Build/Products/Release-iphoneos/App.app output/Payload/
+          cd output && zip -r BlackOverlay.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlackOverlay.ipa
+          path: output/BlackOverlay.ipa
